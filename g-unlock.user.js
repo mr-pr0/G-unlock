@@ -14,6 +14,7 @@
 // @include      *://www.google.*/*
 // @connect      *
 // @grant        GM_xmlhttpRequest
+// @grant        GM_registerMenuCommand
 // @require      https://code.jquery.com/jquery-3.7.1.min.js
 // @run-at       document-idle
 // @noframes
@@ -320,6 +321,7 @@ $(function () {
         refreshContext(true)
         bindEvents()
         bindHistoryEvents()
+        registerMenuCommands()
         scheduleScan()
 
         state.observer = new MutationObserver((mutations) => {
@@ -578,10 +580,16 @@ $(function () {
             render()
         })
 
+        $(document).on('click.gunlock', '#g-unlock-open-settings', function (event) {
+            event.preventDefault()
+            state.ui.panelOpen = !state.ui.panelOpen
+            render()
+        })
+
         $(document).on('click.gunlock', function (event) {
             if (!state.ui.panelOpen) return
             const target = $(event.target)
-            if (target.closest('#g-unlock-settings-panel, #g-unlock-gear').length) return
+            if (target.closest('#g-unlock-settings-panel, #g-unlock-gear, #g-unlock-open-settings, #g-unlock-status-chip').length) return
             state.ui.panelOpen = false
             render()
         })
@@ -660,6 +668,28 @@ $(function () {
         window.__gunlockHistoryBound = true
     }
 
+    function registerMenuCommands() {
+        if (typeof GM_registerMenuCommand !== 'function') return
+
+        GM_registerMenuCommand('G-unlock: Open settings on page', () => {
+            state.ui.panelOpen = true
+            render()
+        })
+
+        GM_registerMenuCommand('G-unlock: Reset settings to defaults', () => {
+            state.settings = Object.assign({}, DEFAULT_SETTINGS)
+            saveSettings()
+            state.ui.panelOpen = true
+            render()
+        })
+
+        GM_registerMenuCommand('G-unlock: Enable domain-only results', () => {
+            state.settings.showLowConfidence = true
+            saveSettings()
+            render()
+        })
+    }
+
     function shouldScheduleForMutations(mutations) {
         const inlineRoot = document.getElementById('g-unlock-inline')
         for (const mutation of mutations) {
@@ -690,7 +720,7 @@ $(function () {
         if (!state.context || !state.context.supported || !state.session) return
 
         const noticeUrls = new Set(state.session.processedNoticeUrls)
-        const root = getSearchRoot()
+        const root = getNoticeSearchRoot()
         if (!root.length) return
 
         root.find('a[href]').each((_, link) => {
@@ -1356,6 +1386,13 @@ $(function () {
         return $('body').first()
     }
 
+    function getNoticeSearchRoot() {
+        if ($('#center_col').first().length) return $('#center_col').first()
+        if ($('#search').first().length) return $('#search').first()
+        if ($('main').first().length) return $('main').first()
+        return $('body').first()
+    }
+
     function ensureInlineMount() {
         const root = getSearchRoot()
         if (!root.length) return $()
@@ -1752,7 +1789,7 @@ $(function () {
                 .g-unlock-url {
                     color: var(--g-unlock-url);
                     font-size: var(--g-unlock-url-size);
-                    line-height: 1.3;
+                    line-height: var(--g-unlock-url-line-height, 1.3);
                     margin-bottom: 2px;
                     overflow-wrap: anywhere;
                 }
@@ -1761,7 +1798,7 @@ $(function () {
                     color: var(--g-unlock-primary);
                     display: inline-block;
                     font-size: var(--g-unlock-title-size);
-                    line-height: 1.3;
+                    line-height: var(--g-unlock-title-line-height, 1.3);
                     margin-bottom: 4px;
                     text-decoration: none;
                 }
@@ -1773,7 +1810,7 @@ $(function () {
                 .g-unlock-snippet {
                     color: var(--g-unlock-snippet);
                     font-size: var(--g-unlock-snippet-size);
-                    line-height: 1.58;
+                    line-height: var(--g-unlock-snippet-line-height, 1.58);
                 }
 
                 .g-unlock-meta-row {
@@ -1830,33 +1867,39 @@ $(function () {
                 }
 
                 #g-unlock-status-chip {
-                    bottom: 16px;
                     position: fixed;
-                    right: 16px;
+                    right: 0;
+                    top: 50%;
+                    transform: translateY(-50%);
                     z-index: 2147483646;
                 }
 
                 .g-unlock-status-chip-inner {
-                    align-items: center;
                     background: rgba(32, 33, 36, 0.92);
                     border: 1px solid rgba(255, 255, 255, 0.16);
-                    border-radius: 999px;
+                    border-right: none;
+                    border-radius: 12px 0 0 12px;
                     color: #fff;
                     display: flex;
-                    gap: 10px;
-                    max-width: min(80vw, 520px);
-                    padding: 10px 14px;
+                    gap: 8px;
+                    max-height: 320px;
+                    padding: 12px 6px;
                     box-shadow: 0 8px 24px rgba(60, 64, 67, 0.28);
+                    writing-mode: vertical-rl;
+                    text-orientation: mixed;
                 }
 
                 .g-unlock-status-chip-inner strong {
                     color: #8ab4f8;
-                    white-space: nowrap;
+                    font-size: 13px;
+                    line-height: 1.1;
+                    white-space: normal;
                 }
 
                 .g-unlock-status-chip-inner span {
-                    font-size: 13px;
-                    line-height: 1.4;
+                    font-size: 11px;
+                    line-height: 1.3;
+                    text-align: start;
                 }
 
                 .g-unlock-status-chip-button {
@@ -1866,8 +1909,27 @@ $(function () {
                     color: #fff;
                     cursor: pointer;
                     font: inherit;
-                    padding: 6px 10px;
-                    white-space: nowrap;
+                    font-size: 11px;
+                    padding: 6px 5px;
+                    white-space: normal;
+                }
+
+                .g-unlock-status-chip-settings {
+                    background: transparent;
+                    border: 1px solid rgba(255, 255, 255, 0.22);
+                }
+
+                .g-unlock-status-panel {
+                    margin-right: 8px;
+                    min-width: min(92vw, 360px);
+                    position: absolute;
+                    right: 100%;
+                    top: 0;
+                }
+
+                #g-unlock-status-chip .g-unlock-settings-panel {
+                    box-shadow: 0 8px 24px rgba(60, 64, 67, 0.28);
+                    margin-bottom: 0;
                 }
 
                 @keyframes g-unlock-pulse {
@@ -1895,10 +1957,13 @@ $(function () {
             '--g-unlock-primary': tokens.primaryColor,
             '--g-unlock-snippet': tokens.snippetColor,
             '--g-unlock-snippet-size': tokens.snippetFontSize,
+            '--g-unlock-snippet-line-height': tokens.snippetLineHeight,
             '--g-unlock-text': tokens.textColor,
             '--g-unlock-title-size': tokens.titleFontSize,
+            '--g-unlock-title-line-height': tokens.titleLineHeight,
             '--g-unlock-url': tokens.urlColor,
-            '--g-unlock-url-size': tokens.urlFontSize
+            '--g-unlock-url-size': tokens.urlFontSize,
+            '--g-unlock-url-line-height': tokens.urlLineHeight
         })
     }
 
@@ -1909,17 +1974,26 @@ $(function () {
             return $(this).find('h3').length > 0
         }).first()
         const title = anchor.find('h3').first()
-        const snippet = root.find('div').filter(function () {
+        const resultContainer = anchor.closest('div.MjjYud, div.g, div[data-hveid], .hlcw0c')
+        const urlNode = resultContainer.find('cite, span.VuuXrf, div.yuRUbf cite, a > span').filter(function () {
+            return $(this).text().trim().length > 0
+        }).first()
+        const snippet = resultContainer.find('div[data-sncf], div.VwiC3b, div.yXK7lf, div.ITZIwc, span.aCOpRe, div').filter(function () {
             return $(this).text().trim().length > 40
         }).first()
         const bodyStyles = window.getComputedStyle(document.body)
         const anchorStyles = anchor.length ? window.getComputedStyle(anchor[0]) : null
         const titleStyles = title.length ? window.getComputedStyle(title[0]) : null
+        const urlStyles = urlNode.length ? window.getComputedStyle(urlNode[0]) : null
         const snippetStyles = snippet.length ? window.getComputedStyle(snippet[0]) : null
         const titleFontSize = titleStyles && titleStyles.fontSize ? titleStyles.fontSize : '22px'
         const snippetFontSize = snippetStyles && snippetStyles.fontSize ? snippetStyles.fontSize : '14px'
-        const urlFontSize = anchorStyles && anchorStyles.fontSize ? anchorStyles.fontSize : '14px'
+        const urlFontSize = urlStyles && urlStyles.fontSize ? urlStyles.fontSize : (anchorStyles && anchorStyles.fontSize ? anchorStyles.fontSize : '14px')
+        const titleLineHeight = titleStyles && titleStyles.lineHeight && titleStyles.lineHeight !== 'normal' ? titleStyles.lineHeight : '1.3'
+        const snippetLineHeight = snippetStyles && snippetStyles.lineHeight && snippetStyles.lineHeight !== 'normal' ? snippetStyles.lineHeight : '1.58'
+        const urlLineHeight = urlStyles && urlStyles.lineHeight && urlStyles.lineHeight !== 'normal' ? urlStyles.lineHeight : '1.3'
         const fontFamily = titleStyles && titleStyles.fontFamily ? titleStyles.fontFamily : (bodyStyles.fontFamily || 'Arial, sans-serif')
+        const stableUrlColor = urlStyles && urlStyles.color && urlStyles.color !== 'rgba(0, 0, 0, 0)' ? urlStyles.color : fallback.urlColor
 
         return {
             badgeBackground: fallback.badgeBackground,
@@ -1934,10 +2008,13 @@ $(function () {
             primaryColor: titleStyles ? titleStyles.color || (anchorStyles ? anchorStyles.color : fallback.primaryColor) : (anchorStyles ? anchorStyles.color : fallback.primaryColor),
             snippetColor: snippetStyles ? snippetStyles.color || fallback.snippetColor : fallback.snippetColor,
             snippetFontSize,
+            snippetLineHeight,
             textColor: bodyStyles.color || fallback.textColor,
             titleFontSize,
-            urlColor: fallback.urlColor,
-            urlFontSize
+            titleLineHeight,
+            urlColor: stableUrlColor,
+            urlFontSize,
+            urlLineHeight
         }
     }
 
@@ -1982,8 +2059,10 @@ $(function () {
             <div class="g-unlock-status-chip-inner">
                 <strong>G-unlock</strong>
                 <span>${escapeHtml(statusText)}</span>
-                ${!state.testMode && resultCount < 1 && !loading ? '<button id="g-unlock-run-test" type="button" class="g-unlock-status-chip-button">Show sample results</button>' : ''}
+                <button id="g-unlock-open-settings" type="button" class="g-unlock-status-chip-button g-unlock-status-chip-settings">Settings</button>
+                ${state.debugEnabled && !state.testMode && resultCount < 1 && !loading ? '<button id="g-unlock-run-test" type="button" class="g-unlock-status-chip-button">Show sample results</button>' : ''}
             </div>
+            ${state.ui.panelOpen ? `<div class="g-unlock-status-panel">${buildSettingsPanel()}</div>` : ''}
         `)
     }
 
