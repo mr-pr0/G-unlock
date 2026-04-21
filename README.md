@@ -1,10 +1,10 @@
-# [Google Unlocked](https://ibit.ws/post/google-unlocked/)
-Google Unlocked is an open source browser extension, which unlocks hidden google search results.
+# G-unlock
+G-unlock is an open source userscript and browser extension that unlocks hidden Google search results.
 
 The extension scans hidden search results that were censored by Google due to complaints.  
 The tool scans those complaints and extracts the links, returning them back to the search results, all in a matter of seconds.
 
-[Check the release page](https://github.com/Ibit-to/google-unlocked/releases).
+[Project repository](https://github.com/mr-pr0/G-unlock).
 
 ## Install in Chrome/Opera/Brave/Chromium
 ~~[Chrome Web Store]~~
@@ -14,22 +14,22 @@ The extension was taken down by Google from the Chrome store. Please use manual 
 ## Install in Firefox
 ~~[Firefox Add-Ons]~~
 
-Taken down too. So you need to [manually install it](https://github.com/Ibit-to/google-unlocked/releases/download/v1.5/google_unlocked-1.5.xpi). With Firefox open, hit Ctrl+ o (or Cmd+ o) > browse to the extension > double click the extension (or select Open) > Install Now.
+Use the userscript install link below for the simplest Firefox setup, or install a packaged build from [G-unlock releases](https://github.com/mr-pr0/G-unlock/releases) when one is available.
 
 ## Install as userscript
-- Install in Violentmonkey: [google-unlocked.user.js](https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js)
+- Install in Violentmonkey: [G-unlock userscript](https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js)
 - Direct install/update URL: `https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js`
 - If Violentmonkey does not open automatically, use `Install from URL` in Violentmonkey and paste the direct install/update URL.
 - Allow access to defined URLs if userscript manager asks for permission.
 
 ## Manual install in Chrome
-- Download the latest zip release from [Google Unlocked repository releases](https://github.com/Ibit-to/google-unlocked/releases)
-- Extract [the zip file](https://github.com/Ibit-to/google-unlocked/releases/download/v1.5/google-unlocked.zip) to a permanent path (Chrome will need to load it every time it restarts).
+- Download the latest zip release from [G-unlock releases](https://github.com/mr-pr0/G-unlock/releases).
+- Extract the downloaded zip to a permanent path (Chrome will need to load it every time it restarts).
 - Open Chrome and go to chrome://extensions/ and check the box for Developer mode in the top right.
 - Click the Load unpacked extension button and select the unzipped folder for your extension to install it.
 
-For other compilable browsers, [Install the latest release on your browser - you will need to confirm it as a known source](https://github.com/Ibit-to/google-unlocked/releases/download/v1.5/google-unlocked.crx).
+For other Chromium-compatible browsers, install the latest release from [G-unlock releases](https://github.com/mr-pr0/G-unlock/releases) and confirm it as a known source if your browser asks.
 
 After installing the extension, every time you Google a keyword, it will transparently scan the hidden URLs and injects them at the bottom of the page.
 
-By [Ibit](https://ibit.uno/), [The Best Torrents](https://ibit.to/popular/)
+Maintained at [mr-pr0/G-unlock](https://github.com/mr-pr0/G-unlock).

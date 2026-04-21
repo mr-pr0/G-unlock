@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name         Google Unlocked
+// @name         G-unlock
 // @version      1.6
 // @namespace    45c9a6614fccd4edff9592da
-// @description  Google Unlocked scans hidden search results that were censored by Google due to complaints
+// @description  G-unlock scans hidden search results that were censored by Google due to complaints
 // @home         https://github.com/mr-pr0/G-unlock
 // @supportURL   https://github.com/mr-pr0/G-unlock/issues
 // @updateURL    https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js
 // @downloadURL  https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js
-// @author       Ibit - The Best Torrents
+// @author       mr-pr0
 // @license      MIT License
 // @icon         https://raw.githubusercontent.com/mr-pr0/G-unlock/main/extension/32.png
 // @include      *://www.google.*/*
@@ -42,7 +42,7 @@ $(function () {
 
     function debugLog() {
         if (!debugEnabled) return
-        console.log('[Google Unlocked]', ...arguments)
+        console.log('[G-unlock]', ...arguments)
     }
 
     function escapeHtml(value) {
