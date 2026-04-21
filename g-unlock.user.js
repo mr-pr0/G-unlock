@@ -32,6 +32,7 @@ $(function () {
     const MAX_METADATA_CONCURRENCY = 4
     const METADATA_TIMEOUT = 12000
     const NOTICE_TIMEOUT = 30000
+    const RIGHT_RAIL_RIGHT_GUTTER = 192
     const FALLBACK_LIGHT = {
         badgeBackground: '#e8f0fe',
         badgeColor: '#174ea6',
@@ -433,7 +434,6 @@ $(function () {
         if (!nextContext.supported) {
             state.session = null
             removeInlineUi()
-            removeStatusChip()
             return
         }
 
@@ -443,7 +443,6 @@ $(function () {
         }
 
         ensurePageState(nextContext.pageStart)
-        renderStatusChip()
     }
 
     function createEmptySession() {
@@ -580,16 +579,10 @@ $(function () {
             render()
         })
 
-        $(document).on('click.gunlock', '#g-unlock-open-settings', function (event) {
-            event.preventDefault()
-            state.ui.panelOpen = !state.ui.panelOpen
-            render()
-        })
-
         $(document).on('click.gunlock', function (event) {
             if (!state.ui.panelOpen) return
             const target = $(event.target)
-            if (target.closest('#g-unlock-settings-panel, #g-unlock-gear, #g-unlock-open-settings, #g-unlock-status-chip').length) return
+            if (target.closest('#g-unlock-settings-panel, #g-unlock-gear, #g-unlock-inline').length) return
             state.ui.panelOpen = false
             render()
         })
@@ -632,13 +625,7 @@ $(function () {
             event.preventDefault()
             state.settings = Object.assign({}, DEFAULT_SETTINGS)
             saveSettings()
-            render()
-        })
-
-        $(document).on('click.gunlock', '#g-unlock-run-test', function (event) {
-            event.preventDefault()
-            state.testMode = true
-            seedMockResults()
+            state.ui.panelOpen = true
             render()
         })
 
@@ -665,21 +652,19 @@ $(function () {
         window.addEventListener('g-unlock:navigation', () => {
             scheduleScan()
         })
+        window.addEventListener('resize', () => {
+            if (!state.context || !state.context.supported) return
+            render()
+        })
         window.__gunlockHistoryBound = true
     }
 
     function registerMenuCommands() {
         if (typeof GM_registerMenuCommand !== 'function') return
 
-        GM_registerMenuCommand('G-unlock: Open settings on page', () => {
-            state.ui.panelOpen = true
-            render()
-        })
-
         GM_registerMenuCommand('G-unlock: Reset settings to defaults', () => {
             state.settings = Object.assign({}, DEFAULT_SETTINGS)
             saveSettings()
-            state.ui.panelOpen = true
             render()
         })
 
@@ -688,6 +673,30 @@ $(function () {
             saveSettings()
             render()
         })
+
+        GM_registerMenuCommand('G-unlock: Disable domain-only results', () => {
+            state.settings.showLowConfidence = false
+            saveSettings()
+            render()
+        })
+
+        GM_registerMenuCommand('G-unlock: Toggle reconstructed badge', () => {
+            state.settings.showBadge = !state.settings.showBadge
+            saveSettings()
+            render()
+        })
+
+        GM_registerMenuCommand('G-unlock: Toggle divider style', () => {
+            state.settings.dividerStyle = state.settings.dividerStyle === 'minimal' ? 'informative' : 'minimal'
+            saveSettings()
+            render()
+        })
+    }
+
+    function applySettingsChange() {
+        state.settings = normalizeSettings(state.settings)
+        saveSettings()
+        render()
     }
 
     function shouldScheduleForMutations(mutations) {
@@ -699,12 +708,6 @@ $(function () {
             return true
         }
         return false
-    }
-
-    function applySettingsChange() {
-        state.settings = normalizeSettings(state.settings)
-        saveSettings()
-        render()
     }
 
     function scheduleScan() {
@@ -1305,7 +1308,6 @@ $(function () {
     function render() {
         if (!state.context || !state.context.supported || !state.session) {
             removeInlineUi()
-            removeStatusChip()
             return
         }
 
@@ -1319,8 +1321,6 @@ $(function () {
         const loading = hasLoadingNotices()
         const shouldRenderUi = visibleRecords.length > 0 || loading
 
-        renderStatusChip(orderedResults.length, loading)
-
         if (!shouldRenderUi) {
             removeInlineUi()
             return
@@ -1331,11 +1331,13 @@ $(function () {
 
         const renderHints = getRenderHints()
         updateThemeTokens(mount, renderHints.tokens)
+        updateRailLayoutMetrics(mount)
 
         const dividerText = state.settings.dividerStyle === 'minimal'
             ? t('dividerMinimal')
             : t('dividerInformative', { count: String(visibleRecords.length) })
         const liveStatus = loading ? t('loading') : dividerText
+        const noticeCountText = `${state.session.processedNoticeUrls.length} DMCA link${state.session.processedNoticeUrls.length === 1 ? '' : 's'}`
 
         const settingsVisible = visibleRecords.length > 0
         const showMoreVisible = visiblePlan.offset + visiblePlan.visibleCount < orderedResults.length
@@ -1343,12 +1345,18 @@ $(function () {
 
         withObserverSuppressed(() => {
             mount.html(`
-            <div class="g-unlock-divider-row" role="heading" aria-level="2">
-                <div class="g-unlock-divider-text">${escapeHtml(dividerText)}</div>
+            <div class="g-unlock-divider-row g-unlock-panel-topbar" role="heading" aria-level="2">
+                <div class="g-unlock-panel-topmeta">
+                    <div class="g-unlock-brand-row">
+                        <strong class="g-unlock-brand">G-unlock</strong>
+                        <span class="g-unlock-divider-text">${escapeHtml(noticeCountText)}</span>
+                    </div>
+                    <div class="g-unlock-divider-text">${escapeHtml(dividerText)}</div>
+                    <div class="g-unlock-note">${escapeHtml(t('explanation'))}</div>
+                </div>
                 ${settingsVisible ? `<button id="g-unlock-gear" type="button" class="g-unlock-gear" aria-label="${escapeHtml(t('gearLabel'))}">&#9881;</button>` : ''}
             </div>
             <div class="g-unlock-live-status" aria-live="polite">${escapeHtml(liveStatus)}</div>
-            <div class="g-unlock-note">${escapeHtml(t('explanation'))}</div>
             ${settingsVisible && state.ui.panelOpen ? buildSettingsPanel() : ''}
             <div class="g-unlock-cards" aria-label="${escapeHtml(dividerText)}">
                 ${visibleRecords.map((record) => buildResultCard(record, renderHints.linkAttributes)).join('')}
@@ -1399,17 +1407,25 @@ $(function () {
 
         const removalNotice = getRemovalNoticeContainer()
         const lastOrganic = getLastOrganicResult()
+        const rightRailHost = getRightRailHost()
+        const useRightRail = !!rightRailHost.length
 
         let mount = $('#g-unlock-inline')
         if (!mount.length) {
             mount = $('<section id="g-unlock-inline" class="g-unlock-root"></section>')
         }
 
-        if (removalNotice.length) {
+        if (useRightRail) {
+            mount.attr('data-layout', 'rail')
+            rightRailHost.append(mount)
+        } else if (removalNotice.length) {
+            mount.attr('data-layout', 'inline')
             removalNotice.before(mount)
         } else if (lastOrganic.length && !mount.prev().is(lastOrganic)) {
+            mount.attr('data-layout', 'inline')
             lastOrganic.after(mount)
         } else if (!lastOrganic.length) {
+            mount.attr('data-layout', 'inline')
             const fallbackContainer = root.find('div.MjjYud, div.g, div[data-hveid], .hlcw0c').last()
             if (fallbackContainer.length) {
                 fallbackContainer.after(mount)
@@ -1424,17 +1440,114 @@ $(function () {
         }
 
         if (!isMountVisible(mount)) {
-            const columnFallback = $('#center_col:visible').first().length
-                ? $('#center_col:visible').first()
-                : (getSearchRoot().length ? getSearchRoot() : $('main:visible').first())
-            if (columnFallback.length) {
-                columnFallback.append(mount)
+            if (useRightRail) {
+                rightRailHost.append(mount)
             } else {
-                $('body').append(mount)
+                const columnFallback = $('#center_col:visible').first().length
+                    ? $('#center_col:visible').first()
+                    : (getSearchRoot().length ? getSearchRoot() : $('main:visible').first())
+                if (columnFallback.length) {
+                    columnFallback.append(mount)
+                } else {
+                    $('body').append(mount)
+                }
             }
         }
 
         return mount
+    }
+
+    function getRightRailHost() {
+        if (window.innerWidth < 1360) return $()
+
+        const rhs = $('#rhs:visible, #rhs_block:visible').first()
+        if (rhs.length) {
+            const occupiedByGoogle = rhs.children(':visible').filter(function () {
+                return this.id !== 'g-unlock-right-rail-host' && ($(this).text().trim().length > 0 || $(this).children(':visible').length > 0)
+            }).length > 0
+
+            if (occupiedByGoogle) return $()
+
+            let host = $('#g-unlock-right-rail-host')
+            if (!host.length) {
+                host = $('<div id="g-unlock-right-rail-host" data-mode="native-rhs"></div>')
+                rhs.append(host)
+            }
+
+            return host
+        }
+
+        const centerCol = $('#center_col:visible').first()
+        if (!centerCol.length) return $()
+
+        const occupiedRightRail = $('#knowledge-panel:visible').filter(function () {
+            return $(this).text().trim().length > 0 || $(this).children(':visible').length > 0
+        }).length > 0
+        if (occupiedRightRail) return $()
+
+        let host = $('#g-unlock-right-rail-host')
+        if (!host.length) {
+            host = $('<aside id="g-unlock-right-rail-host" data-mode="sibling"></aside>')
+            centerCol.after(host)
+        } else if (!host.is(centerCol.next())) {
+            centerCol.after(host)
+        }
+
+        return host
+    }
+
+    function updateRailLayoutMetrics(mount) {
+        if (!mount.length || mount.attr('data-layout') !== 'rail') return
+
+        const host = mount.parent()
+        if (!host.length) return
+
+        const hostRect = host[0].getBoundingClientRect()
+        const viewportPadding = 16
+        let topOffset = Math.max(viewportPadding, hostRect.top)
+        const viewportHeightAvailable = Math.max(220, window.innerHeight - topOffset - viewportPadding)
+        let availableHeight = viewportHeightAvailable
+        let measuredWidth = Math.min(hostRect.width || 320, window.innerWidth - hostRect.left - 24)
+
+        if (host.attr('data-mode') === 'sibling') {
+            const centerCol = $('#center_col:visible').first()
+            const parent = host.parent()
+            if (centerCol.length && parent.length) {
+                const centerRect = centerCol[0].getBoundingClientRect()
+                const parentRect = parent[0].getBoundingClientRect()
+                const rightEdge = Math.min(parentRect.right, window.innerWidth - RIGHT_RAIL_RIGHT_GUTTER)
+                const freeSpace = rightEdge - centerRect.right - 24
+                if (freeSpace > 0) {
+                    measuredWidth = freeSpace
+                }
+
+                topOffset = Math.max(viewportPadding, Math.min(centerRect.top, hostRect.top))
+                const centerOffsetTop = centerCol.offset() ? centerCol.offset().top : (window.scrollY + centerRect.top)
+                const centerHeight = centerCol.outerHeight() || 0
+                const contentBottomViewport = centerOffsetTop + centerHeight - window.scrollY - topOffset - viewportPadding
+                const contentHeightAvailable = Math.max(220, contentBottomViewport)
+                availableHeight = Math.max(220, Math.min(viewportHeightAvailable, contentHeightAvailable))
+
+                host.css({
+                    '--g-unlock-rail-column-height': `${centerHeight}px`
+                })
+            }
+        } else if (host.parent().length) {
+            const railParent = host.parent()
+            const railOffsetTop = railParent.offset() ? railParent.offset().top : (window.scrollY + hostRect.top)
+            const railHeight = railParent.outerHeight() || 0
+            const contentBottomViewport = railOffsetTop + railHeight - window.scrollY - topOffset - viewportPadding
+            const contentHeightAvailable = Math.max(220, contentBottomViewport)
+            availableHeight = Math.max(220, Math.min(viewportHeightAvailable, contentHeightAvailable))
+        }
+
+        const availableWidth = Math.max(measuredWidth, 160)
+
+        host.css({
+            '--g-unlock-rail-height': `${availableHeight}px`,
+            '--g-unlock-rail-top': `${topOffset}px`,
+            '--g-unlock-rail-width': `${availableWidth}px`
+        })
     }
 
     function getRemovalNoticeContainer() {
@@ -1680,6 +1793,61 @@ $(function () {
                     max-width: 700px;
                 }
 
+                #g-unlock-inline[data-layout="rail"] {
+                    background: var(--g-unlock-panel-bg);
+                    border: 1px solid var(--g-unlock-border);
+                    border-radius: 16px;
+                    box-shadow: 0 8px 24px rgba(60, 64, 67, 0.18);
+                    box-sizing: border-box;
+                    height: var(--g-unlock-rail-height, calc(100vh - 120px));
+                    max-width: 100%;
+                    overflow: auto;
+                    padding: 16px 18px;
+                    position: sticky;
+                    top: var(--g-unlock-rail-top, 92px);
+                    width: 100%;
+                }
+
+                #g-unlock-inline[data-layout="rail"] .g-unlock-card {
+                    margin-bottom: 24px;
+                    max-width: none;
+                }
+
+                #g-unlock-inline[data-layout="rail"] .g-unlock-title {
+                    font-size: calc(var(--g-unlock-title-size) - 2px);
+                }
+
+                #g-unlock-inline[data-layout="rail"] .g-unlock-divider-row {
+                    position: sticky;
+                    top: 0;
+                    background: var(--g-unlock-panel-bg);
+                    z-index: 1;
+                }
+
+                #g-unlock-right-rail-host {
+                    position: relative;
+                    width: 100%;
+                }
+
+                #g-unlock-right-rail-host[data-mode="sibling"] {
+                    box-sizing: border-box;
+                    float: right;
+                    margin-left: 24px;
+                    width: var(--g-unlock-rail-width, min(360px, 28vw));
+                }
+
+                #g-unlock-right-rail-host[data-mode="sibling"] > #g-unlock-inline[data-layout="rail"] {
+                    height: auto;
+                    max-height: var(--g-unlock-rail-column-height, none);
+                    overflow: auto;
+                    position: relative;
+                    top: auto;
+                }
+
+                #g-unlock-right-rail-host[data-mode="sibling"] + * {
+                    clear: none;
+                }
+
                 .g-unlock-divider-row {
                     align-items: center;
                     border-top: 1px solid var(--g-unlock-divider);
@@ -1700,7 +1868,7 @@ $(function () {
                     color: var(--g-unlock-note);
                     font-size: 12px;
                     line-height: 1.5;
-                    margin-bottom: 12px;
+                    margin-bottom: 0;
                 }
 
                 .g-unlock-live-status {
@@ -1711,9 +1879,7 @@ $(function () {
                     width: 1px;
                 }
 
-                .g-unlock-gear,
-                .g-unlock-show-more,
-                .g-unlock-reset {
+                .g-unlock-show-more {
                     background: none;
                     border: 1px solid var(--g-unlock-border);
                     border-radius: 999px;
@@ -1728,8 +1894,22 @@ $(function () {
                     margin-top: 8px;
                 }
 
+                .g-unlock-show-more:hover {
+                    background: var(--g-unlock-hover);
+                }
+
+                .g-unlock-gear,
+                .g-unlock-reset {
+                    background: none;
+                    border: 1px solid var(--g-unlock-border);
+                    border-radius: 999px;
+                    color: var(--g-unlock-muted);
+                    cursor: pointer;
+                    font: inherit;
+                    padding: 6px 10px;
+                }
+
                 .g-unlock-gear:hover,
-                .g-unlock-show-more:hover,
                 .g-unlock-reset:hover {
                     background: var(--g-unlock-hover);
                 }
@@ -1779,6 +1959,31 @@ $(function () {
 
                 .g-unlock-hidden {
                     display: none;
+                }
+
+                .g-unlock-panel-topbar {
+                    align-items: flex-start;
+                    border-top: none;
+                    gap: 10px;
+                    margin-bottom: 12px;
+                    padding-top: 0;
+                }
+
+                .g-unlock-panel-topmeta {
+                    display: grid;
+                    gap: 4px;
+                }
+
+                .g-unlock-brand-row {
+                    align-items: baseline;
+                    display: flex;
+                    gap: 8px;
+                }
+
+                .g-unlock-brand {
+                    color: var(--g-unlock-primary);
+                    font-size: 14px;
+                    line-height: 1.2;
                 }
 
                 .g-unlock-card {
@@ -1866,71 +2071,6 @@ $(function () {
                     white-space: pre-wrap;
                 }
 
-                #g-unlock-status-chip {
-                    position: fixed;
-                    right: 0;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    z-index: 2147483646;
-                }
-
-                .g-unlock-status-chip-inner {
-                    background: rgba(32, 33, 36, 0.92);
-                    border: 1px solid rgba(255, 255, 255, 0.16);
-                    border-right: none;
-                    border-radius: 12px 0 0 12px;
-                    color: #fff;
-                    display: flex;
-                    gap: 8px;
-                    max-height: 320px;
-                    padding: 12px 6px;
-                    box-shadow: 0 8px 24px rgba(60, 64, 67, 0.28);
-                    writing-mode: vertical-rl;
-                    text-orientation: mixed;
-                }
-
-                .g-unlock-status-chip-inner strong {
-                    color: #8ab4f8;
-                    font-size: 13px;
-                    line-height: 1.1;
-                    white-space: normal;
-                }
-
-                .g-unlock-status-chip-inner span {
-                    font-size: 11px;
-                    line-height: 1.3;
-                    text-align: start;
-                }
-
-                .g-unlock-status-chip-button {
-                    background: #1a73e8;
-                    border: none;
-                    border-radius: 999px;
-                    color: #fff;
-                    cursor: pointer;
-                    font: inherit;
-                    font-size: 11px;
-                    padding: 6px 5px;
-                    white-space: normal;
-                }
-
-                .g-unlock-status-chip-settings {
-                    background: transparent;
-                    border: 1px solid rgba(255, 255, 255, 0.22);
-                }
-
-                .g-unlock-status-panel {
-                    margin-right: 8px;
-                    min-width: min(92vw, 360px);
-                    position: absolute;
-                    right: 100%;
-                    top: 0;
-                }
-
-                #g-unlock-status-chip .g-unlock-settings-panel {
-                    box-shadow: 0 8px 24px rgba(60, 64, 67, 0.28);
-                    margin-bottom: 0;
-                }
 
                 @keyframes g-unlock-pulse {
                     0% { opacity: .55; }
@@ -2028,46 +2168,6 @@ $(function () {
 
     function removeInlineUi() {
         $('#g-unlock-inline').remove()
-    }
-
-    function renderStatusChip(resultCount, loading) {
-        if (!state.context || !state.context.supported) {
-            removeStatusChip()
-            return
-        }
-
-        let chip = $('#g-unlock-status-chip')
-        if (!chip.length) {
-            $('body').append('<div id="g-unlock-status-chip"></div>')
-            chip = $('#g-unlock-status-chip')
-        }
-
-        let statusText = 'G-unlock active'
-        if (loading) {
-            statusText = 'G-unlock scanning notices'
-        } else if (resultCount > 0) {
-            statusText = state.testMode
-                ? `G-unlock sample mode | ${resultCount} sample result${resultCount === 1 ? '' : 's'}`
-                : `G-unlock found ${resultCount} result${resultCount === 1 ? '' : 's'}`
-        } else if (state.testMode) {
-            statusText = 'G-unlock sample mode'
-        } else {
-            statusText = 'G-unlock active | no unlocked results yet'
-        }
-
-        chip.html(`
-            <div class="g-unlock-status-chip-inner">
-                <strong>G-unlock</strong>
-                <span>${escapeHtml(statusText)}</span>
-                <button id="g-unlock-open-settings" type="button" class="g-unlock-status-chip-button g-unlock-status-chip-settings">Settings</button>
-                ${state.debugEnabled && !state.testMode && resultCount < 1 && !loading ? '<button id="g-unlock-run-test" type="button" class="g-unlock-status-chip-button">Show sample results</button>' : ''}
-            </div>
-            ${state.ui.panelOpen ? `<div class="g-unlock-status-panel">${buildSettingsPanel()}</div>` : ''}
-        `)
-    }
-
-    function removeStatusChip() {
-        $('#g-unlock-status-chip').remove()
     }
 
     function seedMockResults() {
