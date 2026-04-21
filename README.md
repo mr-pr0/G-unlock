@@ -22,6 +22,12 @@ Use the userscript install link below for the simplest Firefox setup, or install
 - If Violentmonkey does not open automatically, use `Install from URL` in Violentmonkey and paste the direct install/update URL.
 - Allow access to defined URLs if userscript manager asks for permission.
 
+## Validation
+- GitHub Actions runs userscript validation on every push and pull request.
+- Current CI checks:
+  - `node --check g-unlock.user.js`
+  - smoke tests from `tests/userscript-smoke.test.mjs`
+
 ## Manual install in Chrome
 - Download the latest zip release from [G-unlock releases](https://github.com/mr-pr0/G-unlock/releases).
 - Extract the downloaded zip to a permanent path (Chrome will need to load it every time it restarts).
