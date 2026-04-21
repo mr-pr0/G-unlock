@@ -17,8 +17,8 @@ The extension was taken down by Google from the Chrome store. Please use manual 
 Use the userscript install link below for the simplest Firefox setup, or install a packaged build from [G-unlock releases](https://github.com/mr-pr0/G-unlock/releases) when one is available.
 
 ## Install as userscript
-- Install in Violentmonkey: [G-unlock userscript](https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js)
-- Direct install/update URL: `https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js`
+- Install in Violentmonkey: [G-unlock userscript](https://raw.githubusercontent.com/mr-pr0/G-unlock/main/g-unlock.user.js)
+- Direct install/update URL: `https://raw.githubusercontent.com/mr-pr0/G-unlock/main/g-unlock.user.js`
 - If Violentmonkey does not open automatically, use `Install from URL` in Violentmonkey and paste the direct install/update URL.
 - Allow access to defined URLs if userscript manager asks for permission.
 

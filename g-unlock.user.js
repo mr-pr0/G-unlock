@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         G-unlock
-// @version      1.6
+// @version      1.6.1
 // @namespace    45c9a6614fccd4edff9592da
 // @description  G-unlock scans hidden search results that were censored by Google due to complaints
 // @home         https://github.com/mr-pr0/G-unlock
 // @supportURL   https://github.com/mr-pr0/G-unlock/issues
-// @updateURL    https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js
-// @downloadURL  https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js
+// @updateURL    https://raw.githubusercontent.com/mr-pr0/G-unlock/main/g-unlock.user.js
+// @downloadURL  https://raw.githubusercontent.com/mr-pr0/G-unlock/main/g-unlock.user.js
 // @author       mr-pr0
 // @license      MIT License
 // @icon         https://raw.githubusercontent.com/mr-pr0/G-unlock/main/extension/32.png
@@ -26,7 +26,7 @@
 $(function () {
     if (window.location.href.indexOf('//www.google') === -1) return
 
-    const debugEnabled = new URLSearchParams(window.location.search).get('google-unlocked-debug') === '1'
+    const debugEnabled = new URLSearchParams(window.location.search).get('g-unlock-debug') === '1'
 
     const state = {
         domains: new Map(),
@@ -97,7 +97,7 @@ $(function () {
     }
 
     function ensureContainer() {
-        let container = $('#google-unlocked-results')
+        let container = $('#g-unlock-results')
         if (container.length) return container
 
         const mountPoint = $('#search').first()
@@ -106,50 +106,50 @@ $(function () {
             .add('body').first()
 
         mountPoint.append(`
-        <section id="google-unlocked-results" style="margin:24px 0;padding:16px 20px;border:1px solid #dadce0;border-radius:12px;background:#f8f9fa;color:#202124;">
+        <section id="g-unlock-results" style="margin:24px 0;padding:16px 20px;border:1px solid #dadce0;border-radius:12px;background:#f8f9fa;color:#202124;">
             <h2 style="margin:0 0 12px;font-size:20px;line-height:1.3;">Unlocked Results</h2>
-            <div id="google-unlocked-status" style="margin:0 0 12px;color:#5f6368;"></div>
-            <div id="google-unlocked-actions" style="margin:0 0 12px;"></div>
-            <div id="google-unlocked-errors" style="margin:0 0 12px;color:#b3261e;"></div>
-            <div id="google-unlocked-error-details" style="margin:0 0 12px;color:#b3261e;"></div>
-            <div id="google-unlocked-links" style="max-height:420px;overflow:auto;"></div>
-            <pre id="google-unlocked-debug" style="display:${debugEnabled ? 'block' : 'none'};margin:12px 0 0;padding:12px;border-radius:8px;background:#fff;border:1px solid #dadce0;color:#3c4043;white-space:pre-wrap;font:12px/1.5 monospace;"></pre>
+            <div id="g-unlock-status" style="margin:0 0 12px;color:#5f6368;"></div>
+            <div id="g-unlock-actions" style="margin:0 0 12px;"></div>
+            <div id="g-unlock-errors" style="margin:0 0 12px;color:#b3261e;"></div>
+            <div id="g-unlock-error-details" style="margin:0 0 12px;color:#b3261e;"></div>
+            <div id="g-unlock-links" style="max-height:420px;overflow:auto;"></div>
+            <pre id="g-unlock-debug" style="display:${debugEnabled ? 'block' : 'none'};margin:12px 0 0;padding:12px;border-radius:8px;background:#fff;border:1px solid #dadce0;color:#3c4043;white-space:pre-wrap;font:12px/1.5 monospace;"></pre>
         </section>
         `)
 
-        return $('#google-unlocked-results')
+        return $('#g-unlock-results')
     }
 
     function ensureFloatingUi() {
-        if (!$('#google-unlocked-bottom-bar').length) {
+        if (!$('#g-unlock-bottom-bar').length) {
             $('body').append(`
-            <div id="google-unlocked-bottom-bar" style="position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483646;display:none;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border:1px solid #dadce0;border-radius:14px;background:#ffffff;box-shadow:0 8px 24px rgba(60,64,67,.24);">
-                <div id="google-unlocked-bottom-status" style="min-width:0;color:#202124;font:14px/1.4 Arial,sans-serif;"></div>
-                <button id="google-unlocked-bottom-button" type="button" style="flex:none;padding:10px 14px;border:1px solid #1a73e8;border-radius:999px;background:#1a73e8;color:#fff;font:600 14px Arial,sans-serif;cursor:pointer;">Show unlocked results</button>
+            <div id="g-unlock-bottom-bar" style="position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483646;display:none;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border:1px solid #dadce0;border-radius:14px;background:#ffffff;box-shadow:0 8px 24px rgba(60,64,67,.24);">
+                <div id="g-unlock-bottom-status" style="min-width:0;color:#202124;font:14px/1.4 Arial,sans-serif;"></div>
+                <button id="g-unlock-bottom-button" type="button" style="flex:none;padding:10px 14px;border:1px solid #1a73e8;border-radius:999px;background:#1a73e8;color:#fff;font:600 14px Arial,sans-serif;cursor:pointer;">Show unlocked results</button>
             </div>
-            <div id="google-unlocked-overlay" style="position:fixed;inset:0;z-index:2147483645;display:none;background:rgba(32,33,36,.38);"></div>
-            <aside id="google-unlocked-drawer" style="position:fixed;top:0;right:0;bottom:0;z-index:2147483647;display:none;width:min(520px,100vw);padding:20px;background:#fff;box-shadow:-8px 0 24px rgba(60,64,67,.24);overflow:auto;color:#202124;">
+            <div id="g-unlock-overlay" style="position:fixed;inset:0;z-index:2147483645;display:none;background:rgba(32,33,36,.38);"></div>
+            <aside id="g-unlock-drawer" style="position:fixed;top:0;right:0;bottom:0;z-index:2147483647;display:none;width:min(520px,100vw);padding:20px;background:#fff;box-shadow:-8px 0 24px rgba(60,64,67,.24);overflow:auto;color:#202124;">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;">
                     <h2 style="margin:0;font-size:22px;line-height:1.3;">Unlocked Results</h2>
-                    <button id="google-unlocked-close" type="button" style="padding:8px 12px;border:1px solid #dadce0;border-radius:999px;background:#fff;color:#202124;font:600 14px Arial,sans-serif;cursor:pointer;">Close</button>
+                    <button id="g-unlock-close" type="button" style="padding:8px 12px;border:1px solid #dadce0;border-radius:999px;background:#fff;color:#202124;font:600 14px Arial,sans-serif;cursor:pointer;">Close</button>
                 </div>
-                <div id="google-unlocked-drawer-summary" style="margin:0 0 12px;color:#5f6368;"></div>
-                <div id="google-unlocked-drawer-errors" style="margin:0 0 12px;color:#b3261e;"></div>
-                <div id="google-unlocked-drawer-links"></div>
+                <div id="g-unlock-drawer-summary" style="margin:0 0 12px;color:#5f6368;"></div>
+                <div id="g-unlock-drawer-errors" style="margin:0 0 12px;color:#b3261e;"></div>
+                <div id="g-unlock-drawer-links"></div>
             </aside>
             `)
         }
 
         if (uiBound) return
 
-        $(document).on('click.googleUnlocked', '#google-unlocked-open-drawer, #google-unlocked-bottom-button', function () {
-            $('#google-unlocked-overlay').show()
-            $('#google-unlocked-drawer').show()
+        $(document).on('click.gUnlock', '#g-unlock-open-drawer, #g-unlock-bottom-button', function () {
+            $('#g-unlock-overlay').show()
+            $('#g-unlock-drawer').show()
         })
 
-        $(document).on('click.googleUnlocked', '#google-unlocked-close, #google-unlocked-overlay', function () {
-            $('#google-unlocked-drawer').hide()
-            $('#google-unlocked-overlay').hide()
+        $(document).on('click.gUnlock', '#g-unlock-close, #g-unlock-overlay', function () {
+            $('#g-unlock-drawer').hide()
+            $('#g-unlock-overlay').hide()
         })
 
         uiBound = true
@@ -190,17 +190,17 @@ $(function () {
         ensureContainer()
         ensureFloatingUi()
 
-        const status = $('#google-unlocked-status')
-        const actions = $('#google-unlocked-actions')
-        const errors = $('#google-unlocked-errors')
-        const errorDetails = $('#google-unlocked-error-details')
-        const links = $('#google-unlocked-links')
-        const debug = $('#google-unlocked-debug')
-        const bottomBar = $('#google-unlocked-bottom-bar')
-        const bottomStatus = $('#google-unlocked-bottom-status')
-        const drawerSummary = $('#google-unlocked-drawer-summary')
-        const drawerErrors = $('#google-unlocked-drawer-errors')
-        const drawerLinks = $('#google-unlocked-drawer-links')
+        const status = $('#g-unlock-status')
+        const actions = $('#g-unlock-actions')
+        const errors = $('#g-unlock-errors')
+        const errorDetails = $('#g-unlock-error-details')
+        const links = $('#g-unlock-links')
+        const debug = $('#g-unlock-debug')
+        const bottomBar = $('#g-unlock-bottom-bar')
+        const bottomStatus = $('#g-unlock-bottom-status')
+        const drawerSummary = $('#g-unlock-drawer-summary')
+        const drawerErrors = $('#g-unlock-drawer-errors')
+        const drawerLinks = $('#g-unlock-drawer-links')
         const noticeStates = Array.from(state.noticeStates.values()).sort((a, b) => a.id.localeCompare(b.id))
         const issueStates = noticeStates.filter((item) => item.status !== 'ok' && item.status !== 'loading')
         const items = getSortedItems()
@@ -215,7 +215,7 @@ $(function () {
         }
 
         if (state.domains.size > 0) {
-            actions.html('<button id="google-unlocked-open-drawer" type="button" style="padding:10px 14px;border:1px solid #1a73e8;border-radius:999px;background:#fff;color:#1a73e8;font:600 14px Arial,sans-serif;cursor:pointer;">Open separate results box</button>')
+            actions.html('<button id="g-unlock-open-drawer" type="button" style="padding:10px 14px;border:1px solid #1a73e8;border-radius:999px;background:#fff;color:#1a73e8;font:600 14px Arial,sans-serif;cursor:pointer;">Open separate results box</button>')
         } else {
             actions.empty()
         }
