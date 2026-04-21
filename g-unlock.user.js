@@ -29,9 +29,12 @@ $(function () {
     const TEST_PARAM = 'g-unlock-test'
     const SETTINGS_KEY = 'g-unlock:settings'
     const SESSION_PREFIX = 'g-unlock:session:'
+    const NOTICE_CACHE_PREFIX = 'g-unlock:notice:'
     const MAX_METADATA_CONCURRENCY = 4
     const METADATA_TIMEOUT = 12000
-    const NOTICE_TIMEOUT = 30000
+    const NOTICE_TIMEOUT = 10000
+    const NOTICE_CACHE_TTL = 7 * 24 * 60 * 60 * 1000
+    const SCAN_DEBOUNCE_MS = 120
     const RIGHT_RAIL_RIGHT_GUTTER = 192
     const FALLBACK_LIGHT = {
         badgeBackground: '#e8f0fe',
@@ -716,7 +719,7 @@ $(function () {
             refreshContext(false)
             scanPage()
             render()
-        }, 400)
+        }, SCAN_DEBOUNCE_MS)
     }
 
     function scanPage() {
@@ -724,9 +727,10 @@ $(function () {
 
         const noticeUrls = new Set(state.session.processedNoticeUrls)
         const root = getNoticeSearchRoot()
+        let sessionChanged = false
         if (!root.length) return
 
-        root.find('a[href]').each((_, link) => {
+        root.find('a[href*="lumendatabase.org/notices/"], a[href*="chillingeffects.org/notice.cgi"]').each((_, link) => {
             const noticeUrl = getNoticeUrl(link.href)
             if (noticeUrl) noticeUrls.add(noticeUrl)
         })
@@ -734,14 +738,20 @@ $(function () {
         debugLog('Scan complete', 'detected_notices=', noticeUrls.size)
 
         noticeUrls.forEach((noticeUrl) => {
+            if (applyCachedNotice(noticeUrl, state.session, state.context)) {
+                sessionChanged = true
+            }
+
             if (shouldFetchNotice(noticeUrl)) {
                 if (state.session.processedNoticeUrls.indexOf(noticeUrl) === -1) {
-                state.session.processedNoticeUrls.push(noticeUrl)
+                    state.session.processedNoticeUrls.push(noticeUrl)
+                    sessionChanged = true
                 }
-                saveSession()
                 fetchNotice(noticeUrl)
             }
         })
+
+        if (sessionChanged) saveSession()
 
         scheduleMetadataEnrichment()
     }
@@ -811,7 +821,9 @@ $(function () {
                     return
                 }
 
-                const recovered = parseNotice(targetSession, contextSnapshot, response.responseText, noticeUrl)
+                const entries = extractNoticeEntries(response.responseText)
+                if (entries.length) saveNoticeCache(noticeUrl, entries)
+                const recovered = applyNoticeEntries(targetSession, contextSnapshot, entries, noticeId)
                 setNoticeState(targetSession, noticeId, recovered > 0 ? 'ok' : 'error', recovered > 0 ? `Recovered ${recovered}` : 'No visible results')
                 saveSessionFor(contextSnapshot.fingerprint, targetSession)
                 syncActiveSession(contextSnapshot.fingerprint, targetSession)
@@ -858,10 +870,16 @@ $(function () {
     }
 
     function parseNotice(targetSession, contextSnapshot, html, noticeUrl) {
+        const noticeId = getNoticeId(noticeUrl)
+        const entries = extractNoticeEntries(html)
+        if (entries.length) saveNoticeCache(noticeUrl, entries)
+        return applyNoticeEntries(targetSession, contextSnapshot, entries, noticeId)
+    }
+
+    function extractNoticeEntries(html) {
         const doc = new DOMParser().parseFromString(html, 'text/html')
         const items = Array.from(doc.querySelectorAll('.infringing_url'))
-        const noticeId = getNoticeId(noticeUrl)
-        let recovered = 0
+        const entries = []
 
         items.forEach((item) => {
             const normalizedText = item.textContent.replace(/\s+/g, ' ').trim()
@@ -875,16 +893,75 @@ $(function () {
             const exactUrl = pickExactUrl(sourceText, inlineHref)
 
             if (exactUrl) {
-                if (upsertResultFromExactUrl(targetSession, contextSnapshot, exactUrl, removedUrlCount, noticeId)) recovered++
+                entries.push({ removedUrlCount, type: 'url', value: exactUrl })
                 return
             }
 
             const domain = extractDomain(sourceText)
             if (!domain) return
-            if (upsertResultFromDomain(targetSession, contextSnapshot, domain, removedUrlCount, noticeId)) recovered++
+            entries.push({ removedUrlCount, type: 'domain', value: domain })
+        })
+
+        return entries
+    }
+
+    function applyNoticeEntries(targetSession, contextSnapshot, entries, noticeId) {
+        let recovered = 0
+
+        entries.forEach((entry) => {
+            if (entry.type === 'url') {
+                if (upsertResultFromExactUrl(targetSession, contextSnapshot, entry.value, entry.removedUrlCount, noticeId)) recovered++
+                return
+            }
+
+            if (entry.type === 'domain' && upsertResultFromDomain(targetSession, contextSnapshot, entry.value, entry.removedUrlCount, noticeId)) recovered++
         })
 
         return recovered
+    }
+
+    function applyCachedNotice(noticeUrl, targetSession, contextSnapshot) {
+        const noticeId = getNoticeId(noticeUrl)
+        const notice = targetSession.notices[noticeId]
+        if (notice && notice.status === 'ok') return false
+
+        const cachedNotice = loadNoticeCache(noticeUrl)
+        if (!cachedNotice || !Array.isArray(cachedNotice.entries) || !cachedNotice.entries.length) return false
+
+        const recovered = applyNoticeEntries(targetSession, contextSnapshot, cachedNotice.entries, noticeId)
+        if (!recovered) return false
+
+        setNoticeState(targetSession, noticeId, 'ok', `Recovered ${recovered} from cache`)
+        return true
+    }
+
+    function loadNoticeCache(noticeUrl) {
+        try {
+            const raw = localStorage.getItem(NOTICE_CACHE_PREFIX + getNoticeId(noticeUrl))
+            if (!raw) return null
+
+            const parsed = JSON.parse(raw)
+            if (!parsed || !Array.isArray(parsed.entries)) return null
+            if (Date.now() - (Number(parsed.cachedAt) || 0) > NOTICE_CACHE_TTL) {
+                localStorage.removeItem(NOTICE_CACHE_PREFIX + getNoticeId(noticeUrl))
+                return null
+            }
+
+            return parsed
+        } catch (err) {
+            return null
+        }
+    }
+
+    function saveNoticeCache(noticeUrl, entries) {
+        try {
+            localStorage.setItem(NOTICE_CACHE_PREFIX + getNoticeId(noticeUrl), JSON.stringify({
+                cachedAt: Date.now(),
+                entries
+            }))
+        } catch (err) {
+            debugLog('Notice cache write skipped', err && err.message ? err.message : err)
+        }
     }
 
     function pickExactUrl(sourceText, inlineHref) {
@@ -892,18 +969,37 @@ $(function () {
         if (inlineHref) candidates.push(inlineHref)
         const textMatch = sourceText.match(/https?:\/\/[^\s<>'"]+/i)
         if (textMatch) candidates.push(textMatch[0])
+        const barePathMatch = sourceText.match(/\b([a-z0-9.-]+\.[a-z]{2,}\/[^\s<>'"\])]+)/i)
+        if (barePathMatch) candidates.push(barePathMatch[1])
 
         for (const candidate of candidates) {
-            try {
-                const url = new URL(candidate)
-                if (!/^https?:$/i.test(url.protocol)) continue
-                return url.href
-            } catch (err) {
-                continue
-            }
+            const normalizedUrl = normalizeExactUrlCandidate(candidate)
+            if (normalizedUrl) return normalizedUrl
         }
 
         return null
+    }
+
+    function normalizeExactUrlCandidate(candidate) {
+        if (!candidate) return null
+
+        const trimmed = String(candidate).trim().replace(/[),.;\]]+$/g, '')
+        const hasExplicitScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+        const isProtocolRelative = trimmed.startsWith('//')
+        const isBarePathUrl = /^[a-z0-9.-]+\.[a-z]{2,}\//i.test(trimmed)
+        if (!hasExplicitScheme && !isProtocolRelative && !isBarePathUrl) return null
+
+        const href = hasExplicitScheme
+            ? trimmed
+            : (isProtocolRelative ? `https:${trimmed}` : `https://${trimmed}`)
+
+        try {
+            const url = new URL(href)
+            if (!/^https?:$/i.test(url.protocol)) return null
+            return url.href
+        } catch (err) {
+            return null
+        }
     }
 
     function extractDomain(value) {
@@ -1126,7 +1222,7 @@ $(function () {
     }
 
     function needsMetadata(record) {
-        return !!record.fetchUrl && isPublicFetchTarget(record.fetchUrl) && record.fetchAttempts < 2 && record.metadataStatus !== 'ready' && record.metadataStatus !== 'failed'
+        return !!record.exactUrlAvailable && !!record.fetchUrl && isPublicFetchTarget(record.fetchUrl) && record.fetchAttempts < 2 && record.metadataStatus !== 'ready' && record.metadataStatus !== 'failed'
     }
 
     function enqueueMetadata(id, priority) {
@@ -1200,14 +1296,6 @@ $(function () {
     }
 
     function metadataFallback(fingerprint, targetSession, record) {
-        if (record.fetchUrl !== record.homepageUrl) {
-            record.fetchUrl = record.homepageUrl
-            record.metadataStatus = 'none'
-            enqueueMetadata(record.id, 1)
-            finishMetadataRequest(fingerprint, targetSession)
-            return
-        }
-
         record.metadataStatus = 'failed'
         record.qualityPassed = false
         finishMetadataRequest(fingerprint, targetSession)
