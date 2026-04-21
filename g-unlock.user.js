@@ -477,10 +477,24 @@ $(function () {
                     session.resultOrder.push(id)
                 }
             })
+            if (!state.testMode) {
+                stripMockResults(session)
+            }
             return session
         } catch (err) {
             return createEmptySession()
         }
+    }
+
+    function stripMockResults(session) {
+        delete session.notices['mock-notice']
+        Object.keys(session.results).forEach((id) => {
+            const record = session.results[id]
+            if (record && Array.isArray(record.noticeIds) && record.noticeIds.indexOf('mock-notice') !== -1) {
+                delete session.results[id]
+            }
+        })
+        session.resultOrder = session.resultOrder.filter((id) => !!session.results[id])
     }
 
     function hydratePageState(rawPage) {
@@ -1334,26 +1348,77 @@ $(function () {
     }
 
     function getSearchRoot() {
-        if ($('#search').first().length) return $('#search').first()
+        if ($('#rso').first().length) return $('#rso').first()
+        if ($('#search #rso').first().length) return $('#search #rso').first()
         if ($('#center_col').first().length) return $('#center_col').first()
+        if ($('#search').first().length) return $('#search').first()
         if ($('main').first().length) return $('main').first()
         return $('body').first()
     }
 
     function ensureInlineMount() {
+        const root = getSearchRoot()
+        if (!root.length) return $()
+
+        const removalNotice = getRemovalNoticeContainer()
         const lastOrganic = getLastOrganicResult()
-        if (!lastOrganic.length) return $()
 
         let mount = $('#g-unlock-inline')
         if (!mount.length) {
             mount = $('<section id="g-unlock-inline" class="g-unlock-root"></section>')
         }
 
-        if (!mount.prev().is(lastOrganic)) {
+        if (removalNotice.length) {
+            removalNotice.before(mount)
+        } else if (lastOrganic.length && !mount.prev().is(lastOrganic)) {
             lastOrganic.after(mount)
+        } else if (!lastOrganic.length) {
+            const fallbackContainer = root.find('div.MjjYud, div.g, div[data-hveid], .hlcw0c').last()
+            if (fallbackContainer.length) {
+                fallbackContainer.after(mount)
+            } else {
+                const visibleChildren = root.children(':visible')
+                if (visibleChildren.length) {
+                    visibleChildren.last().after(mount)
+                } else {
+                    root.append(mount)
+                }
+            }
+        }
+
+        if (!isMountVisible(mount)) {
+            const columnFallback = $('#center_col:visible').first().length
+                ? $('#center_col:visible').first()
+                : (getSearchRoot().length ? getSearchRoot() : $('main:visible').first())
+            if (columnFallback.length) {
+                columnFallback.append(mount)
+            } else {
+                $('body').append(mount)
+            }
         }
 
         return mount
+    }
+
+    function getRemovalNoticeContainer() {
+        const root = $('#center_col').first().length
+            ? $('#center_col').first()
+            : ($('#search').first().length ? $('#search').first() : getSearchRoot())
+        if (!root.length) return $()
+
+        const noticeLink = root.find('a[href]').filter(function () {
+            const href = $(this).attr('href') || ''
+            return href.indexOf('lumendatabase.org') !== -1 || href.indexOf('chillingeffects.org') !== -1 || href.indexOf('/support/answer/1386831') !== -1
+        }).last()
+
+        if (!noticeLink.length) return $()
+
+        const noticeContainer = noticeLink.closest('div.MjjYud, div.g, div[data-hveid], .hlcw0c, blockquote, [role="heading"] + div, div')
+        return noticeContainer.length ? noticeContainer.first() : $()
+    }
+
+    function isMountVisible(mount) {
+        return !!(mount && mount.length && mount.is(':visible') && mount.closest('body').length)
     }
 
     function getLastOrganicResult() {
@@ -1369,14 +1434,33 @@ $(function () {
             return true
         })
 
+        const headingContainers = root.find('h3').filter(function () {
+            const heading = $(this)
+            if (heading.closest('#g-unlock-inline').length) return false
+            if (heading.closest('[data-text-ad], .commercial-unit-desktop-top, .commercial-unit-desktop-rhs, [data-pla-slot-pos]').length) return false
+            if (heading.closest('g-scrolling-carousel, g-section-with-header, .ULSxyf, [jscontroller][data-hveid] g-scrolling-carousel').length) return false
+            return true
+        })
+
         let lastContainer = $()
         anchors.each((_, anchor) => {
             const container = $(anchor).closest('div.MjjYud, div.g, div[data-hveid], .hlcw0c')
             if (container.length) lastContainer = container.first()
         })
 
+        if (!lastContainer.length) {
+            headingContainers.each((_, heading) => {
+                const container = $(heading).closest('div.MjjYud, div.g, div[data-hveid], .hlcw0c')
+                if (container.length) lastContainer = container.first()
+            })
+        }
+
         if (!lastContainer.length && anchors.length) {
             lastContainer = $(anchors[anchors.length - 1]).closest('div').first()
+        }
+
+        if (!lastContainer.length && headingContainers.length) {
+            lastContainer = $(headingContainers[headingContainers.length - 1]).closest('div').first()
         }
 
         return lastContainer
@@ -1885,9 +1969,11 @@ $(function () {
         if (loading) {
             statusText = 'G-unlock scanning notices'
         } else if (resultCount > 0) {
-            statusText = `G-unlock found ${resultCount} result${resultCount === 1 ? '' : 's'}`
+            statusText = state.testMode
+                ? `G-unlock sample mode | ${resultCount} sample result${resultCount === 1 ? '' : 's'}`
+                : `G-unlock found ${resultCount} result${resultCount === 1 ? '' : 's'}`
         } else if (state.testMode) {
-            statusText = 'G-unlock test mode'
+            statusText = 'G-unlock sample mode'
         } else {
             statusText = 'G-unlock active | no unlocked results yet'
         }
@@ -1896,7 +1982,7 @@ $(function () {
             <div class="g-unlock-status-chip-inner">
                 <strong>G-unlock</strong>
                 <span>${escapeHtml(statusText)}</span>
-                ${!state.testMode && resultCount < 1 && !loading ? '<button id="g-unlock-run-test" type="button" class="g-unlock-status-chip-button">Show test results</button>' : ''}
+                ${!state.testMode && resultCount < 1 && !loading ? '<button id="g-unlock-run-test" type="button" class="g-unlock-status-chip-button">Show sample results</button>' : ''}
             </div>
         `)
     }
@@ -1906,30 +1992,84 @@ $(function () {
     }
 
     function seedMockResults() {
-        if (!state.session || state.ui.mockSeeded) return
+        if (!state.session) return
 
         const noticeId = 'mock-notice'
+        if (state.session.notices[noticeId] && state.session.results['url:https://www.mozilla.org/firefox/new']) {
+            state.ui.mockSeeded = true
+            return
+        }
+
         const mockResults = [
             {
-                domain: 'example.com',
-                id: 'url:https://example.com/article/g-unlock-demo',
+                domain: 'www.mozilla.org',
+                id: 'url:https://www.mozilla.org/firefox/new',
                 removedUrlCount: 12,
-                title: `${state.context.query} - Example result`,
-                url: 'https://example.com/article/g-unlock-demo'
+                title: `${state.context.query} - Mozilla Firefox`,
+                url: 'https://www.mozilla.org/firefox/new'
             },
             {
-                domain: 'demo-site.net',
-                id: 'url:https://demo-site.net/posts/unlocked-result',
+                domain: 'www.wikipedia.org',
+                id: 'url:https://www.wikipedia.org',
+                removedUrlCount: 11,
+                title: `${state.context.query} - Wikipedia`,
+                url: 'https://www.wikipedia.org'
+            },
+            {
+                domain: 'developer.mozilla.org',
+                id: 'url:https://developer.mozilla.org/en-US/',
+                removedUrlCount: 10,
+                title: `${state.context.query} - MDN Web Docs`,
+                url: 'https://developer.mozilla.org/en-US/'
+            },
+            {
+                domain: 'stackoverflow.com',
+                id: 'url:https://stackoverflow.com/questions',
+                removedUrlCount: 9,
+                title: `${state.context.query} - Stack Overflow`,
+                url: 'https://stackoverflow.com/questions'
+            },
+            {
+                domain: 'archive.org',
+                id: 'url:https://archive.org/details/texts',
+                removedUrlCount: 8,
+                title: `${state.context.query} - Internet Archive`,
+                url: 'https://archive.org/details/texts'
+            },
+            {
+                domain: 'www.npmjs.com',
+                id: 'url:https://www.npmjs.com/',
                 removedUrlCount: 7,
-                title: `${state.context.query} - Demo Site`,
-                url: 'https://demo-site.net/posts/unlocked-result'
+                title: `${state.context.query} - npm`,
+                url: 'https://www.npmjs.com/'
+            },
+            {
+                domain: 'www.gnu.org',
+                id: 'url:https://www.gnu.org/software/',
+                removedUrlCount: 6,
+                title: `${state.context.query} - GNU Software`,
+                url: 'https://www.gnu.org/software/'
             },
             {
                 domain: 'sample.org',
                 id: 'domain:sample.org',
-                removedUrlCount: 4,
+                removedUrlCount: 5,
                 title: `${state.context.query} - sample.org`,
                 url: 'https://sample.org'
+            },
+            {
+                domain: 'example.net',
+                id: 'domain:example.net',
+                removedUrlCount: 4,
+                title: `${state.context.query} - example.net`,
+                url: 'https://example.net'
+            },
+            {
+                domain: 'example.org',
+                id: 'domain:example.org',
+                removedUrlCount: 3,
+                title: `${state.context.query} - example.org`,
+                url: 'https://example.org'
             }
         ]
 
@@ -1945,7 +2085,7 @@ $(function () {
             record.noticeIds = [noticeId]
             record.removedUrlCount = item.removedUrlCount
             record.syntheticTitle = item.title
-            record.syntheticSnippet = `Mock reconstructed result for "${state.context.query}" on ${item.domain}.`
+            record.syntheticSnippet = `Sample reconstructed result for "${state.context.query}" on ${item.domain}. This is shown to verify the inline G-unlock UI path.`
             state.session.results[item.id] = record
             if (state.session.resultOrder.indexOf(item.id) === -1) {
                 state.session.resultOrder.push(item.id)
@@ -1953,6 +2093,8 @@ $(function () {
         })
 
         state.ui.mockSeeded = true
-        saveSession()
+        if (state.testMode) {
+            saveSession()
+        }
     }
 })
