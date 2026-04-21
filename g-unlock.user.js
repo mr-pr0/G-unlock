@@ -1337,7 +1337,8 @@ $(function () {
             ? t('dividerMinimal')
             : t('dividerInformative', { count: String(visibleRecords.length) })
         const liveStatus = loading ? t('loading') : dividerText
-        const noticeCountText = `${state.session.processedNoticeUrls.length} DMCA link${state.session.processedNoticeUrls.length === 1 ? '' : 's'}`
+        const domainCount = new Set(orderedResults.map((record) => record.canonicalDomain || record.domain)).size
+        const noticeCountText = `${domainCount} domain${domainCount === 1 ? '' : 's'}`
 
         const settingsVisible = visibleRecords.length > 0
         const showMoreVisible = visiblePlan.offset + visiblePlan.visibleCount < orderedResults.length
