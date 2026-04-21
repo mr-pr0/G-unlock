@@ -28,6 +28,12 @@ Use the userscript install link below for the simplest Firefox setup, or install
   - `node --check g-unlock.user.js`
   - smoke tests from `tests/userscript-smoke.test.mjs`
 
+## Debugging The Userscript
+- The userscript now shows a small fixed `G-unlock` status chip on supported Google search pages so you can confirm it has loaded.
+- If no live unlocked results are found yet, use the `Show test results` button in that chip to render mock reconstructed results and verify the UI path.
+- You can also force test mode with: `?g-unlock-test=1`
+- Debug logging remains available with: `?g-unlock-debug=1`
+
 ## Manual install in Chrome
 - Download the latest zip release from [G-unlock releases](https://github.com/mr-pr0/G-unlock/releases).
 - Extract the downloaded zip to a permanent path (Chrome will need to load it every time it restarts).

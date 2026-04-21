@@ -25,6 +25,7 @@ $(function () {
     if (!isSupportedGoogleHost(window.location.hostname)) return
 
     const DEBUG_PARAM = 'g-unlock-debug'
+    const TEST_PARAM = 'g-unlock-test'
     const SETTINGS_KEY = 'g-unlock:settings'
     const SESSION_PREFIX = 'g-unlock:session:'
     const MAX_METADATA_CONCURRENCY = 4
@@ -281,7 +282,9 @@ $(function () {
         session: null,
         settings: loadSettings(),
         styleInjected: false,
+        testMode: new URLSearchParams(window.location.search).get(TEST_PARAM) === '1',
         ui: {
+            mockSeeded: false,
             panelOpen: false
         }
     }
@@ -428,6 +431,7 @@ $(function () {
         if (!nextContext.supported) {
             state.session = null
             removeInlineUi()
+            removeStatusChip()
             return
         }
 
@@ -437,6 +441,7 @@ $(function () {
         }
 
         ensurePageState(nextContext.pageStart)
+        renderStatusChip()
     }
 
     function createEmptySession() {
@@ -605,6 +610,13 @@ $(function () {
             event.preventDefault()
             state.settings = Object.assign({}, DEFAULT_SETTINGS)
             saveSettings()
+            render()
+        })
+
+        $(document).on('click.gunlock', '#g-unlock-run-test', function (event) {
+            event.preventDefault()
+            state.testMode = true
+            seedMockResults()
             render()
         })
 
@@ -1249,7 +1261,12 @@ $(function () {
     function render() {
         if (!state.context || !state.context.supported || !state.session) {
             removeInlineUi()
+            removeStatusChip()
             return
+        }
+
+        if (state.testMode) {
+            seedMockResults()
         }
 
         const orderedResults = getEligibleOrderedResults()
@@ -1257,6 +1274,8 @@ $(function () {
         const visibleRecords = orderedResults.slice(visiblePlan.offset, visiblePlan.offset + visiblePlan.visibleCount)
         const loading = hasLoadingNotices()
         const shouldRenderUi = visibleRecords.length > 0 || loading
+
+        renderStatusChip(orderedResults.length, loading)
 
         if (!shouldRenderUi) {
             removeInlineUi()
@@ -1726,6 +1745,47 @@ $(function () {
                     white-space: pre-wrap;
                 }
 
+                #g-unlock-status-chip {
+                    bottom: 16px;
+                    position: fixed;
+                    right: 16px;
+                    z-index: 2147483646;
+                }
+
+                .g-unlock-status-chip-inner {
+                    align-items: center;
+                    background: rgba(32, 33, 36, 0.92);
+                    border: 1px solid rgba(255, 255, 255, 0.16);
+                    border-radius: 999px;
+                    color: #fff;
+                    display: flex;
+                    gap: 10px;
+                    max-width: min(80vw, 520px);
+                    padding: 10px 14px;
+                    box-shadow: 0 8px 24px rgba(60, 64, 67, 0.28);
+                }
+
+                .g-unlock-status-chip-inner strong {
+                    color: #8ab4f8;
+                    white-space: nowrap;
+                }
+
+                .g-unlock-status-chip-inner span {
+                    font-size: 13px;
+                    line-height: 1.4;
+                }
+
+                .g-unlock-status-chip-button {
+                    background: #1a73e8;
+                    border: none;
+                    border-radius: 999px;
+                    color: #fff;
+                    cursor: pointer;
+                    font: inherit;
+                    padding: 6px 10px;
+                    white-space: nowrap;
+                }
+
                 @keyframes g-unlock-pulse {
                     0% { opacity: .55; }
                     50% { opacity: 1; }
@@ -1807,5 +1867,92 @@ $(function () {
 
     function removeInlineUi() {
         $('#g-unlock-inline').remove()
+    }
+
+    function renderStatusChip(resultCount, loading) {
+        if (!state.context || !state.context.supported) {
+            removeStatusChip()
+            return
+        }
+
+        let chip = $('#g-unlock-status-chip')
+        if (!chip.length) {
+            $('body').append('<div id="g-unlock-status-chip"></div>')
+            chip = $('#g-unlock-status-chip')
+        }
+
+        let statusText = 'G-unlock active'
+        if (loading) {
+            statusText = 'G-unlock scanning notices'
+        } else if (resultCount > 0) {
+            statusText = `G-unlock found ${resultCount} result${resultCount === 1 ? '' : 's'}`
+        } else if (state.testMode) {
+            statusText = 'G-unlock test mode'
+        } else {
+            statusText = 'G-unlock active | no unlocked results yet'
+        }
+
+        chip.html(`
+            <div class="g-unlock-status-chip-inner">
+                <strong>G-unlock</strong>
+                <span>${escapeHtml(statusText)}</span>
+                ${!state.testMode && resultCount < 1 && !loading ? '<button id="g-unlock-run-test" type="button" class="g-unlock-status-chip-button">Show test results</button>' : ''}
+            </div>
+        `)
+    }
+
+    function removeStatusChip() {
+        $('#g-unlock-status-chip').remove()
+    }
+
+    function seedMockResults() {
+        if (!state.session || state.ui.mockSeeded) return
+
+        const noticeId = 'mock-notice'
+        const mockResults = [
+            {
+                domain: 'example.com',
+                id: 'url:https://example.com/article/g-unlock-demo',
+                removedUrlCount: 12,
+                title: `${state.context.query} - Example result`,
+                url: 'https://example.com/article/g-unlock-demo'
+            },
+            {
+                domain: 'demo-site.net',
+                id: 'url:https://demo-site.net/posts/unlocked-result',
+                removedUrlCount: 7,
+                title: `${state.context.query} - Demo Site`,
+                url: 'https://demo-site.net/posts/unlocked-result'
+            },
+            {
+                domain: 'sample.org',
+                id: 'domain:sample.org',
+                removedUrlCount: 4,
+                title: `${state.context.query} - sample.org`,
+                url: 'https://sample.org'
+            }
+        ]
+
+        setNoticeState(state.session, noticeId, 'ok', 'Mock test results injected')
+
+        mockResults.forEach((item) => {
+            const record = createResultRecord(item.id, item.domain, item.id.startsWith('domain:'))
+            record.clickTarget = item.url
+            record.destinationUrl = item.url
+            record.displayUrl = formatDisplayUrl(item.url)
+            record.fetchUrl = item.url
+            record.homepageUrl = `https://${item.domain}`
+            record.noticeIds = [noticeId]
+            record.removedUrlCount = item.removedUrlCount
+            record.syntheticTitle = item.title
+            record.syntheticSnippet = `Mock reconstructed result for "${state.context.query}" on ${item.domain}.`
+            state.session.results[item.id] = record
+            if (state.session.resultOrder.indexOf(item.id) === -1) {
+                state.session.resultOrder.push(item.id)
+            }
+        })
+
+        state.ui.mockSeeded = true
+        saveSession()
     }
 })
