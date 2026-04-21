@@ -10,6 +10,7 @@
 // @author       mr-pr0
 // @license      MIT License
 // @icon         https://raw.githubusercontent.com/mr-pr0/G-unlock/main/extension/32.png
+// @include      *://google.*/*
 // @include      *://www.google.*/*
 // @connect      *
 // @grant        GM_xmlhttpRequest
@@ -289,10 +290,17 @@ $(function () {
 
     function isSupportedGoogleHost(hostname) {
         const labels = String(hostname || '').toLowerCase().split('.')
-        if (labels.length < 3) return false
-        if (labels[0] !== 'www' || labels[1] !== 'google') return false
+        if (labels.length < 2) return false
 
-        const suffix = labels.slice(2)
+        let suffix = []
+        if (labels[0] === 'google') {
+            suffix = labels.slice(1)
+        } else if (labels.length >= 3 && labels[0] === 'www' && labels[1] === 'google') {
+            suffix = labels.slice(2)
+        } else {
+            return false
+        }
+
         if (suffix.length === 1) {
             return /^[a-z]{2,}$/.test(suffix[0])
         }
