@@ -17,7 +17,9 @@ The extension was taken down by Google from the Chrome store. Please use manual 
 Taken down too. So you need to [manually install it](https://github.com/Ibit-to/google-unlocked/releases/download/v1.5/google_unlocked-1.5.xpi). With Firefox open, hit Ctrl+ o (or Cmd+ o) > browse to the extension > double click the extension (or select Open) > Install Now.
 
 ## Install as userscript
-- Install the userscript from [here](https://raw.githubusercontent.com/Ibit-to/google-unlocked/master/google-unlocked.user.js)
+- Install in Violentmonkey: [google-unlocked.user.js](https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js)
+- Direct install/update URL: `https://raw.githubusercontent.com/mr-pr0/G-unlock/main/google-unlocked.user.js`
+- If Violentmonkey does not open automatically, use `Install from URL` in Violentmonkey and paste the direct install/update URL.
 - Allow access to defined URLs if userscript manager asks for permission.
 
 ## Manual install in Chrome
