@@ -38,7 +38,6 @@ $(function () {
     }
 
     let scanTimer = null
-    let uiBound = false
 
     function debugLog() {
         if (!debugEnabled) return
@@ -100,59 +99,23 @@ $(function () {
         let container = $('#g-unlock-results')
         if (container.length) return container
 
-        const mountPoint = $('#search').first()
-            .add('#rcnt').first()
-            .add('main').first()
-            .add('body').first()
+        let mountPoint = $('#search').first()
+        if (!mountPoint.length) mountPoint = $('#center_col').first()
+        if (!mountPoint.length) mountPoint = $('main').first()
+        if (!mountPoint.length) mountPoint = $('body').first()
 
         mountPoint.append(`
-        <section id="g-unlock-results" style="margin:24px 0;padding:16px 20px;border:1px solid #dadce0;border-radius:12px;background:#f8f9fa;color:#202124;">
-            <h2 style="margin:0 0 12px;font-size:20px;line-height:1.3;">Unlocked Results</h2>
+        <section id="g-unlock-results" style="margin:24px 0;color:#202124;">
+            <h2 style="margin:0 0 12px;font-size:22px;line-height:1.3;font-weight:500;">Unlocked Results</h2>
             <div id="g-unlock-status" style="margin:0 0 12px;color:#5f6368;"></div>
-            <div id="g-unlock-actions" style="margin:0 0 12px;"></div>
             <div id="g-unlock-errors" style="margin:0 0 12px;color:#b3261e;"></div>
             <div id="g-unlock-error-details" style="margin:0 0 12px;color:#b3261e;"></div>
-            <div id="g-unlock-links" style="max-height:420px;overflow:auto;"></div>
+            <div id="g-unlock-links"></div>
             <pre id="g-unlock-debug" style="display:${debugEnabled ? 'block' : 'none'};margin:12px 0 0;padding:12px;border-radius:8px;background:#fff;border:1px solid #dadce0;color:#3c4043;white-space:pre-wrap;font:12px/1.5 monospace;"></pre>
         </section>
         `)
 
         return $('#g-unlock-results')
-    }
-
-    function ensureFloatingUi() {
-        if (!$('#g-unlock-bottom-bar').length) {
-            $('body').append(`
-            <div id="g-unlock-bottom-bar" style="position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483646;display:none;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border:1px solid #dadce0;border-radius:14px;background:#ffffff;box-shadow:0 8px 24px rgba(60,64,67,.24);">
-                <div id="g-unlock-bottom-status" style="min-width:0;color:#202124;font:14px/1.4 Arial,sans-serif;"></div>
-                <button id="g-unlock-bottom-button" type="button" style="flex:none;padding:10px 14px;border:1px solid #1a73e8;border-radius:999px;background:#1a73e8;color:#fff;font:600 14px Arial,sans-serif;cursor:pointer;">Show unlocked results</button>
-            </div>
-            <div id="g-unlock-overlay" style="position:fixed;inset:0;z-index:2147483645;display:none;background:rgba(32,33,36,.38);"></div>
-            <aside id="g-unlock-drawer" style="position:fixed;top:0;right:0;bottom:0;z-index:2147483647;display:none;width:min(520px,100vw);padding:20px;background:#fff;box-shadow:-8px 0 24px rgba(60,64,67,.24);overflow:auto;color:#202124;">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;">
-                    <h2 style="margin:0;font-size:22px;line-height:1.3;">Unlocked Results</h2>
-                    <button id="g-unlock-close" type="button" style="padding:8px 12px;border:1px solid #dadce0;border-radius:999px;background:#fff;color:#202124;font:600 14px Arial,sans-serif;cursor:pointer;">Close</button>
-                </div>
-                <div id="g-unlock-drawer-summary" style="margin:0 0 12px;color:#5f6368;"></div>
-                <div id="g-unlock-drawer-errors" style="margin:0 0 12px;color:#b3261e;"></div>
-                <div id="g-unlock-drawer-links"></div>
-            </aside>
-            `)
-        }
-
-        if (uiBound) return
-
-        $(document).on('click.gUnlock', '#g-unlock-open-drawer, #g-unlock-bottom-button', function () {
-            $('#g-unlock-overlay').show()
-            $('#g-unlock-drawer').show()
-        })
-
-        $(document).on('click.gUnlock', '#g-unlock-close, #g-unlock-overlay', function () {
-            $('#g-unlock-drawer').hide()
-            $('#g-unlock-overlay').hide()
-        })
-
-        uiBound = true
     }
 
     function getSortedItems() {
@@ -172,11 +135,10 @@ $(function () {
             const href = escapeHtml(url)
 
             return `
-                <article style="padding:12px 0;border-top:1px solid #eceff1;">
-                    <div style="margin-bottom:4px;color:#5f6368;font-size:12px;line-height:1.4;">Recovered from DMCA notice data</div>
-                    <a href="${href}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-bottom:4px;color:#1a0dab;font-size:20px;line-height:1.3;text-decoration:none;">${label}</a>
-                    <div style="color:#202124;font-size:14px;line-height:1.5;">${item.count} removed URL${item.count === 1 ? '' : 's'} referenced for this domain.</div>
-                    <div style="margin-top:2px;color:#188038;font-size:13px;line-height:1.4;">${href}</div>
+                <article style="margin:0 0 28px;max-width:680px;">
+                    <div style="margin-bottom:2px;color:#202124;font-size:14px;line-height:1.3;">${href}</div>
+                    <a href="${href}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-bottom:4px;color:#1a0dab;font-size:22px;line-height:1.3;text-decoration:none;">${label}</a>
+                    <div style="color:#4d5156;font-size:14px;line-height:1.58;">Recovered from DMCA notice data. ${item.count} removed URL${item.count === 1 ? '' : 's'} referenced for this domain.</div>
                 </article>
             `
         }).join('')
@@ -188,19 +150,12 @@ $(function () {
         }
 
         ensureContainer()
-        ensureFloatingUi()
 
         const status = $('#g-unlock-status')
-        const actions = $('#g-unlock-actions')
         const errors = $('#g-unlock-errors')
         const errorDetails = $('#g-unlock-error-details')
         const links = $('#g-unlock-links')
         const debug = $('#g-unlock-debug')
-        const bottomBar = $('#g-unlock-bottom-bar')
-        const bottomStatus = $('#g-unlock-bottom-status')
-        const drawerSummary = $('#g-unlock-drawer-summary')
-        const drawerErrors = $('#g-unlock-drawer-errors')
-        const drawerLinks = $('#g-unlock-drawer-links')
         const noticeStates = Array.from(state.noticeStates.values()).sort((a, b) => a.id.localeCompare(b.id))
         const issueStates = noticeStates.filter((item) => item.status !== 'ok' && item.status !== 'loading')
         const items = getSortedItems()
@@ -212,12 +167,6 @@ $(function () {
             status.text(`Recovered ${state.domains.size} hidden domain${state.domains.size === 1 ? '' : 's'} and approximately ${totalRecoveredUrls} removed URL${totalRecoveredUrls === 1 ? '' : 's'}.`)
         } else {
             status.text('Found takedown notices, but could not recover any visible domains from them.')
-        }
-
-        if (state.domains.size > 0) {
-            actions.html('<button id="g-unlock-open-drawer" type="button" style="padding:10px 14px;border:1px solid #1a73e8;border-radius:999px;background:#fff;color:#1a73e8;font:600 14px Arial,sans-serif;cursor:pointer;">Open separate results box</button>')
-        } else {
-            actions.empty()
         }
 
         const messages = []
@@ -247,19 +196,6 @@ $(function () {
         }
 
         links.html(buildResultsMarkup(items))
-
-        if (state.pending > 0) {
-            bottomStatus.text(`Scanning takedown notices. ${state.pending} request${state.pending === 1 ? '' : 's'} still running.`)
-        } else if (state.domains.size > 0) {
-            bottomStatus.text(`Unlocked approximately ${totalRecoveredUrls} removed URLs across ${state.domains.size} recovered domains.`)
-        } else {
-            bottomStatus.text('Detected takedown notices, but no visible domains could be recovered yet.')
-        }
-
-        drawerSummary.text(status.text())
-        drawerErrors.html(errorDetails.html() || errors.text())
-        drawerLinks.html(buildResultsMarkup(items))
-        bottomBar.css('display', 'flex')
 
         if (debugEnabled) {
             debug.text([
